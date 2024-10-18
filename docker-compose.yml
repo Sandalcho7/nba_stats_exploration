@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring-network
+
+  prometheus:
+    build:
+      context: ./prometheus
+      dockerfile: Dockerfile.prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring-network
+
+  grafana:
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile.grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - monitoring-network
+    depends_on:
+      - prometheus
+
+networks:
+  monitoring-network:
+    driver: bridge

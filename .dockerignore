@@ -1,0 +1,7 @@
+.gitignore
+Dockerfile.api
+
+data/
+grafana/
+prometheus/
+node_modules/
