@@ -1,0 +1,10 @@
+groups:
+- name: example
+  rules:
+  - alert: HighRequestLatency
+    expr: http_request_duration_seconds{quantile="0.5"} > 1
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: High request latency

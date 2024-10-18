@@ -7,15 +7,17 @@ A simple dashboard allowing the user to communicate with a database storing play
 ```bash
 project/
 │
-├── data/               # Data files, later imported in the database (git ignored)
+├── alertmanager/       # Alert Manager config
+│   └── config.yml
 │
-├── grafana/            # Grafana image and settings
-│   ├── .dockerignore
-│   └── Dockerfile.grafana
+├── grafana/            # Grafana config
+│   └── provisioning/
+│       └── datasources/
+│           └── datasources.yaml
 │
-├── prometheus/         # Prometheus image and settings
-│   ├── .dockerignore
-│   └── Dockerfile.prometheus
+├── prometheus/         # Prometheus config
+│   ├── alert.rules
+│   └── prometheus.yml
 │
 ├── src/
 │   ├── utils/          # Utilities functions
