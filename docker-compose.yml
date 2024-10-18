@@ -1,14 +1,81 @@
-version: '3.8'
+version: "3"
+
+networks:
+  monitoring-network:
+    driver: bridge
 
 services:
+  loki:
+    image: grafana/loki:2.9.2
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring-network
+
+  promtail:
+    image: grafana/promtail:2.9.2
+    volumes:
+      - /var/log:/var/log
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy 
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          orgId: 1
+          url: http://prometheus:9090
+          basicAuth: false
+          isDefault: false
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    networks:
+      - monitoring-network
+    depends_on:
+      - loki
+      - prometheus
+
   api-server:
     build:
       context: .
       dockerfile: Dockerfile.api
     ports:
-      - "3000:3000"
+      - "8080:3000"
     networks:
       - monitoring-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   prometheus:
     build:
@@ -18,18 +85,3 @@ services:
       - "9090:9090"
     networks:
       - monitoring-network
-
-  grafana:
-    build:
-      context: ./grafana
-      dockerfile: Dockerfile.grafana
-    ports:
-      - "3001:3000"
-    networks:
-      - monitoring-network
-    depends_on:
-      - prometheus
-
-networks:
-  monitoring-network:
-    driver: bridge

@@ -7,8 +7,6 @@ A simple dashboard allowing the user to communicate with a database storing play
 ```bash
 project/
 │
-├── .git
-│
 ├── data/               # Data files, later imported in the database (git ignored)
 │
 ├── grafana/            # Grafana image and settings
