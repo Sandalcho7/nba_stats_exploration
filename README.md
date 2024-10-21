@@ -7,27 +7,35 @@ A simple dashboard allowing the user to communicate with a database storing play
 ```bash
 project/
 │
-├── alertmanager/       # Alert Manager config
+├── alertmanager/               # Alert Manager config
 │   └── config.yml
 │
-├── grafana/            # Grafana config
+├── database/                   # Database files
+│   └── tables-creation.sql     # Tables creation requests examples
+│
+├── grafana/                    # Grafana config
 │   └── provisioning/
 │       └── datasources/
 │           └── datasources.yaml
 │
-├── prometheus/         # Prometheus config
+├── prometheus/                 # Prometheus config
 │   ├── alert.rules
 │   └── prometheus.yml
 │
 ├── src/
-│   ├── utils/          # Utilities functions
-│   └── server.js       # API script
+│   ├── api/                    # Services APIs
+│   │   └── postgres-api.js     # Postgres API functions
+│   │
+│   ├── utils/                  # Utilities functions
+│   │   └── sql-generation.js   # SQL requests generation functions
+│   │
+│   └── server.js               # API script
 │
 ├── .dockerignore
 ├── .env
 ├── .gitignore
 ├── docker-compose.yml
-├── Dockerfile.api      # API server image
+├── Dockerfile.api              # API server image
 ├── package-lock.json
 ├── package.json
 └── README.md
