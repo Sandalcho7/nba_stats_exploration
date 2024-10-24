@@ -132,7 +132,7 @@ app.post('/insert-data-from-csv', upload.single('csvFile'), async (req, res) => 
 });
 
 // Query routes
-app.post('/api/query', async (req, res) => {
+app.post('/select-query', async (req, res) => {
   try {
     const { tableName, fields, conditions, options } = req.body;
 
