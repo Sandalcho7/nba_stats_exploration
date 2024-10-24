@@ -8,7 +8,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-import { testDbConnection, createTableFromCSV, insertDataFromCSV, selectFromDatabase } from './api/postgres-api.js';
+import { testDbConnection, createTableFromCSV, insertDataFromCSV, selectFromDatabase, deleteAllFromTable } from './api/postgres-api.js';
+import { scrapeTopScorers } from './utils/scraping.js';
+
 
 // Load environment variables
 dotenv.config();
@@ -20,7 +22,17 @@ const port = process.env.API_PORT || 3000;
 // Create a Registry to register metrics
 const register = new promClient.Registry();
 
-const upload = multer({ dest: 'uploads/' });
+// Configure Multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Configure Winston logger with Loki transport
 const logger = winston.createLogger({
@@ -83,7 +95,8 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Utilities routes
+
+// Utils routes
 app.post('/create-table-from-csv', upload.single('csvFile'), async (req, res) => {
   try {
       if (!req.file) {
@@ -103,6 +116,7 @@ app.post('/create-table-from-csv', upload.single('csvFile'), async (req, res) =>
       res.status(500).json({ error: 'Failed to create table', details: error.message });
   }
 });
+
 
 app.post('/insert-data-from-csv', upload.single('csvFile'), async (req, res) => {
   try {
@@ -131,7 +145,7 @@ app.post('/insert-data-from-csv', upload.single('csvFile'), async (req, res) => 
   }
 });
 
-// Query routes
+
 app.post('/select-query', async (req, res) => {
   try {
     const { tableName, fields, conditions, options } = req.body;
@@ -155,6 +169,42 @@ app.post('/select-query', async (req, res) => {
     });
   }
 });
+
+
+app.post('/update-top-scorers', async (req, res) => {
+  try {
+    const season = req.body.season || "2024-25";
+    const topLimit = parseInt(req.body.topLimit || "10", 10);
+    logger.info(`Scraping top ${topLimit} scorers for season ${season}`);
+    
+    const topScorers = await scrapeTopScorers(logger, season, topLimit);
+    
+    if (topScorers.length === 0) {
+      logger.warn('No data retrieved from scraping');
+      return res.status(404).json({ status: 'error', message: 'No data retrieved' });
+    }
+
+    const tableName = 'top_scorers';
+    
+    // Clear existing data
+    await deleteAllFromTable(logger, tableName);
+
+    // Insert new data
+    for (const scorer of topScorers) {
+      await selectFromDatabase(logger, tableName, ['player', 'ppg'], null, {
+        insert: true,
+        values: [scorer.playerName, scorer.points]
+      });
+    }
+
+    logger.info(`Successfully updated top ${topLimit} scorers for season ${season}`);
+    res.json({ status: 'success', message: `Top ${topLimit} scorers updated successfully`, data: topScorers });
+  } catch (error) {
+    logger.error(`Error updating top scorers:`, error);
+    res.status(500).json({ status: 'error', message: `Failed to update top scorers`, error: error.message });
+  }
+});
+
 
 
 // Start the server

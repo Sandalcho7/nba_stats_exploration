@@ -36,3 +36,10 @@ CREATE TABLE IF NOT EXISTS player_totals
     pf INTEGER,
     pts INTEGER
 );
+
+
+CREATE TABLE IF NOT EXISTS top_scorers
+(
+    player TEXT,
+    ppg DOUBLE PRECISION
+);

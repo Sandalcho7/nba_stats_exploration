@@ -107,25 +107,31 @@ export async function insertDataFromCSV(logger, filePath, tableName) {
 
 export async function selectFromDatabase(logger, tableName, fields, conditions = {}, options = {}) {
     const client = await pool.connect();
+    let query = '';
+    let values = [];
     try {
-        let query = `SELECT ${fields.join(', ')} FROM ${tableName}`;
-        const values = [];
-        
-        if (Object.keys(conditions).length > 0) {
-            const whereClauses = [];
-            Object.entries(conditions).forEach(([key, value], index) => {
-                whereClauses.push(`${key} = $${index + 1}`);
-                values.push(value);
-            });
-            query += ` WHERE ${whereClauses.join(' AND ')}`;
-        }
-        
-        if (options.orderBy) {
-            query += ` ORDER BY ${options.orderBy}`;
-        }
-        
-        if (options.limit) {
-            query += ` LIMIT ${options.limit}`;
+        if (options.insert) {
+            query = `INSERT INTO ${tableName} (${fields.join(', ')}) VALUES (${options.values.map((_, i) => `$${i + 1}`).join(', ')})`;
+            values = options.values;
+        } else {
+            query = `SELECT ${fields.join(', ')} FROM ${tableName}`;
+            
+            if (Object.keys(conditions).length > 0) {
+                const whereClauses = [];
+                Object.entries(conditions).forEach(([key, value], index) => {
+                    whereClauses.push(`${key} = $${index + 1}`);
+                    values.push(value);
+                });
+                query += ` WHERE ${whereClauses.join(' AND ')}`;
+            }
+            
+            if (options.orderBy) {
+                query += ` ORDER BY ${options.orderBy}`;
+            }
+            
+            if (options.limit) {
+                query += ` LIMIT ${options.limit}`;
+            }
         }
         
         logger.info('Executing database query', { query, values });
@@ -141,6 +147,25 @@ export async function selectFromDatabase(logger, tableName, fields, conditions =
             stack: error.stack,
             query,
             values
+        });
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+export async function deleteAllFromTable(logger, tableName) {
+    const client = await pool.connect();
+    try {
+        const query = `DELETE FROM ${tableName}`;
+        logger.info('Executing delete all query', { query });
+        await client.query(query);
+        logger.info('Delete all query executed successfully');
+    } catch (error) {
+        logger.error('Error executing delete all query', { 
+            error: error.message, 
+            stack: error.stack,
+            tableName
         });
         throw error;
     } finally {
