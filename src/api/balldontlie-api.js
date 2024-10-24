@@ -8,7 +8,6 @@ dotenv.config();
 
 export async function fetchTeamsInfo(logger) {
     try {
-        logger.info(process.env.BALLDONTLIE_API_KEY);
       const response = await axios.get('https://api.balldontlie.io/v1/teams', {
         headers: {
           'Authorization': process.env.BALLDONTLIE_API_KEY
