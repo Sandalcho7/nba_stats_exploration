@@ -10,6 +10,7 @@ import fs from 'fs';
 
 import { testDbConnection, createTableFromCSV, insertDataFromCSV, selectFromDatabase, deleteAllFromTable } from './api/postgres-api.js';
 import { scrapeTopScorers } from './utils/scraping.js';
+import { fetchTeamsInfo } from './api/balldontlie-api.js';
 
 
 // Load environment variables
@@ -202,6 +203,54 @@ app.post('/update-top-scorers', async (req, res) => {
   } catch (error) {
     logger.error(`Error updating top scorers:`, error);
     res.status(500).json({ status: 'error', message: `Failed to update top scorers`, error: error.message });
+  }
+});
+
+
+app.post('/update-teams-info', async (req, res) => {
+  try {
+    logger.info('Updating teams information');
+    
+    let teamsInformation;
+    try {
+      teamsInformation = await fetchTeamsInfo(logger);
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        return res.status(401).json({ status: 'error', message: 'Unauthorized: Please check your API key' });
+      }
+      throw error; // Re-throw if it's not a 401 error
+    }
+    
+    if (!teamsInformation || teamsInformation.length === 0) {
+      logger.warn('No data retrieved from API');
+      return res.status(404).json({ status: 'error', message: 'No data retrieved' });
+    }
+
+    const tableName = 'teams_info';
+    
+    // Clear existing data
+    await deleteAllFromTable(logger, tableName);
+
+    // Insert new data
+    for (const team of teamsInformation) {
+      await selectFromDatabase(logger, tableName, ['conference', 'division', 'team_abbreviation', 'city', 'name', 'full_name'], null, {
+        insert: true,
+        values: [
+          team.conference,
+          team.division,
+          team.abbreviation,
+          team.city,
+          team.name,
+          team.full_name
+        ]
+      });
+    }
+
+    logger.info('Successfully updated team information');
+    res.json({ status: 'success', message: 'Team information updated successfully', data: teamsInformation });
+  } catch (error) {
+    logger.error(`Error updating team information:`, error);
+    res.status(500).json({ status: 'error', message: `Failed to update team information`, error: error.message });
   }
 });
 
