@@ -104,3 +104,46 @@ export async function insertDataFromCSV(logger, filePath, tableName) {
         client.release();
     }
 }
+
+export async function selectFromDatabase(logger, tableName, fields, conditions = {}, options = {}) {
+    const client = await pool.connect();
+    try {
+        let query = `SELECT ${fields.join(', ')} FROM ${tableName}`;
+        const values = [];
+        
+        if (Object.keys(conditions).length > 0) {
+            const whereClauses = [];
+            Object.entries(conditions).forEach(([key, value], index) => {
+                whereClauses.push(`${key} = $${index + 1}`);
+                values.push(value);
+            });
+            query += ` WHERE ${whereClauses.join(' AND ')}`;
+        }
+        
+        if (options.orderBy) {
+            query += ` ORDER BY ${options.orderBy}`;
+        }
+        
+        if (options.limit) {
+            query += ` LIMIT ${options.limit}`;
+        }
+        
+        logger.info('Executing database query', { query, values });
+
+        const result = await client.query(query, values);
+        
+        logger.info('Query executed successfully', { rowCount: result.rowCount });
+        
+        return result.rows;
+    } catch (error) {
+        logger.error('Error executing database query', { 
+            error: error.message, 
+            stack: error.stack,
+            query,
+            values
+        });
+        throw error;
+    } finally {
+        client.release();
+    }
+}

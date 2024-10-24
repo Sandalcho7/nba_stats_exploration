@@ -8,7 +8,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-import { testDbConnection, createTableFromCSV, insertDataFromCSV } from './api/postgres-api.js';
+import { testDbConnection, createTableFromCSV, insertDataFromCSV, selectFromDatabase } from './api/postgres-api.js';
 
 // Load environment variables
 dotenv.config();
@@ -41,6 +41,8 @@ const logger = winston.createLogger({
     }),
   ],
 });
+
+app.use(express.json());
 
 // Add Prometheus middleware
 app.use(promMiddleware({
@@ -126,6 +128,31 @@ app.post('/insert-data-from-csv', upload.single('csvFile'), async (req, res) => 
     if (req.file) {
       fs.unlinkSync(req.file.path);
     }
+  }
+});
+
+// Query routes
+app.post('/select-query', async (req, res) => {
+  try {
+    const { tableName, fields, conditions, options } = req.body;
+
+    if (!tableName || !fields || !Array.isArray(fields)) {
+      return res.status(400).json({ error: 'Invalid request. tableName and fields array are required.' });
+    }
+
+    const results = await selectFromDatabase(logger, tableName, fields, conditions, options);
+
+    res.json({
+      status: 'success',
+      data: results
+    });
+  } catch (error) {
+    logger.error('Error in query endpoint', { error: error.message, stack: error.stack });
+    res.status(500).json({
+      status: 'error',
+      message: 'An error occurred while processing your request.',
+      error: error.message
+    });
   }
 });
 
