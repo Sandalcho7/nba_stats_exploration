@@ -22,12 +22,12 @@ export async function scrapeTopScorers(logger, season, limit) {
 
       const realLimit = limit >= 50 ? 50 : limit;
   
-      const top10Scorers = players.slice(0, realLimit).map(player => ({
+      const topScorers = players.slice(0, realLimit).map(player => ({
         playerName: player[playerNameIndex],
         points: player[ptsIndex]
       }));
   
-      return top10Scorers;
+      return topScorers;
     } catch (error) {
       logger.error('Error in scraping:', error);
       return [];
