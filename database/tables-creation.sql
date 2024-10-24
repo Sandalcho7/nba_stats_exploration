@@ -43,3 +43,14 @@ CREATE TABLE IF NOT EXISTS top_scorers
     player TEXT,
     ppg DOUBLE PRECISION
 );
+
+
+CREATE TABLE IF NOT EXISTS teams_info
+(
+    conference TEXT,
+    division TEXT,
+    team_abbreviation TEXT,
+    city TEXT,
+    name TEXT,
+    full_name TEXT
+);
