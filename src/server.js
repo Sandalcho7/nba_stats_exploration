@@ -190,11 +190,9 @@ app.post('/select-query', async (req, res) => {
         const { tableName, fields, conditions, options, isDemo } = req.body;
 
         if (!tableName || !fields || !Array.isArray(fields)) {
-            return res
-                .status(400)
-                .json({
-                    error: 'Invalid request. tableName and fields array are required.',
-                });
+            return res.status(400).json({
+                error: 'Invalid request. tableName and fields array are required.',
+            });
         }
 
         const results = await selectFromDatabase(
@@ -246,16 +244,30 @@ app.post('/update-top-scorers', async (req, res) => {
         // Clear existing data
         await deleteAllFromTable(logger, tableName, isDemo);
 
-        // Insert new data
+        // Insert new data with positions
         for (const scorer of topScorers) {
+            // Get the position from player_season_info in demo DB
+            const positionResult = await selectFromDatabase(
+                logger,
+                'player_season_info',
+                ['pos'],
+                { player: scorer.name },
+                { orderBy: 'season DESC', limit: 1 },
+                true
+            );
+
+            const position =
+                positionResult.length > 0 ? positionResult[0].pos : 'Unknown';
+
+            // Insert into top_scorers table in the appropriate DB based on isDemo
             await selectFromDatabase(
                 logger,
                 tableName,
-                ['player', 'ppg'],
+                ['player', 'ppg', 'position'],
                 null,
                 {
                     insert: true,
-                    values: [scorer.name, scorer.points],
+                    values: [scorer.name, scorer.points, position],
                 },
                 isDemo
             );
@@ -291,12 +303,10 @@ app.post('/update-teams-info', async (req, res) => {
             teamsInformation = await fetchTeamsInfo(logger);
         } catch (error) {
             if (error.response && error.response.status === 401) {
-                return res
-                    .status(401)
-                    .json({
-                        status: 'error',
-                        message: 'Unauthorized: Please check your API key',
-                    });
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'Unauthorized: Please check your API key',
+                });
             }
             throw error;
         }
