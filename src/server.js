@@ -194,7 +194,7 @@ app.post('/update-top-scorers', async (req, res) => {
     for (const scorer of topScorers) {
       await selectFromDatabase(logger, tableName, ['player', 'ppg'], null, {
         insert: true,
-        values: [scorer.playerName, scorer.points]
+        values: [scorer.name, scorer.points]
       });
     }
 

@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS player_totals
 CREATE TABLE IF NOT EXISTS top_scorers
 (
     player TEXT,
-    ppg DOUBLE PRECISION
+    ppg DOUBLE PRECISION,
+    position TEXT
 );
 
 
