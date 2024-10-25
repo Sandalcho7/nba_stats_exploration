@@ -88,5 +88,19 @@ services:
     networks:
       - monitoring-network
 
+  demo-postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_DB=${DEMO_POSTGRES_DB}
+      - POSTGRES_USER=${DEMO_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${DEMO_POSTGRES_PASSWORD}
+    volumes:
+      - demo_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DEMO_POSTGRES_PORT}:5432"
+    networks:
+      - monitoring-network
+
 volumes:
   postgres_data:
+  demo_postgres_data:
