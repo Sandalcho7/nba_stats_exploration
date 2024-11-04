@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def processInput(data, feature_names):
+def process_input(data, feature_names):
     features = np.zeros(len(feature_names))
     
     for i, feature in enumerate(feature_names):
@@ -21,3 +21,7 @@ def processInput(data, feature_names):
             features[i] = data[feature]
     
     return features
+
+
+def remove_dots(name):
+    return name.replace('.', '')
