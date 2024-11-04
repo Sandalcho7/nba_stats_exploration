@@ -109,6 +109,22 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
+// Alert routes
+app.post('/webhook', express.json(), (req, res) => {
+    logger.info('Received webhook', { body: req.body });
+
+    // Process the webhook payload
+    const alerts = req.body.alerts;
+    if (alerts && alerts.length > 0) {
+        alerts.forEach((alert) => {
+            logger.warn(`Alert received: ${alert.alertname}`, { alert });
+            // Add your alert handling logic here
+        });
+    }
+
+    res.status(200).send('Webhook received');
+});
+
 // Utils routes
 app.post(
     '/create-table-from-csv',
