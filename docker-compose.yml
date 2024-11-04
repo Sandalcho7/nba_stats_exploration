@@ -11,14 +11,6 @@ services:
     networks:
       - monitoring-network
 
-  promtail:
-    image: grafana/promtail:2.9.2
-    volumes:
-      - /var/log:/var/log
-    command: -config.file=/etc/promtail/config.yml
-    networks:
-      - monitoring-network
-
   grafana:
     image: grafana/grafana:latest
     ports:
