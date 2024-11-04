@@ -23,17 +23,20 @@ project/
 │   └── prometheus.yml
 │
 ├── src/
-│   ├── api/                    # Services APIs
+│   ├── api/
+│   │   ├── balldontlie-api.js  # Ball Don't Lie API functions
 │   │   └── postgres-api.js     # Postgres API functions
 │   │
-│   ├── utils/                  # Utilities functions
+│   ├── utils/
+│   │   ├── scraping.js         # Scraping functions
 │   │   └── sql-generation.js   # SQL requests generation functions
 │   │
 │   └── server.js               # API script
 │
 ├── .dockerignore
-├── .env
+├── .env                        # Git ignored
 ├── .gitignore
+├── .prettierrc
 ├── docker-compose.yml
 ├── Dockerfile.api              # API server image
 ├── package-lock.json
