@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
+import json
 import joblib
 
-from utils import processInput
+from utils import process_input
+from data_fetching import get_player_prediction_data
 
 app = Flask(__name__)
 
@@ -15,9 +17,26 @@ model, feature_names = joblib.load(f'{models_directory}/{model_name}.joblib')
 def predict():
     try:
         data = request.json
-        features = processInput(data, feature_names)
+        if 'first_name' not in data or 'last_name' not in data:
+            return jsonify({'error': 'First name and last name are required'}), 400
+
+        # Generate player data JSON
+        player_data_json = get_player_prediction_data(data['first_name'], data['last_name'])
+        player_data = json.loads(player_data_json)
+
+        # Check if there was an error in getting player data
+        if 'error' in player_data:
+            return jsonify(player_data), 404
+
+        # Process the player data for prediction
+        features = process_input(player_data, feature_names)
         prediction = model.predict([features])[0]
-        return jsonify({'prediction': float(prediction)})
+
+        return jsonify({
+            'player': f"{data['first_name']} {data['last_name']}",
+            'prediction': float(prediction),
+            'player_data': player_data
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 400
     
