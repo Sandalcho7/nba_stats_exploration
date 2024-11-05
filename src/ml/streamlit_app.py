@@ -46,7 +46,7 @@ if st.button("Predict"):
                 features_df = process_input(player_data, feature_names)
                 prediction = model.predict(features_df)[0]
 
-                st.success(f"Predicted Field Goal Percentage for {selected_player}: {prediction:.2f}%")
+                st.success(f"Predicted Field Goal Percentage for {selected_player}: {prediction*100:.2f}%")
 
                 with st.expander("Player Data", expanded=False):
                     st.json(player_data)
