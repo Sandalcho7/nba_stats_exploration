@@ -29,8 +29,8 @@ def predict():
             return jsonify(player_data), 404
 
         # Process the player data for prediction
-        features = process_input(player_data, feature_names)
-        prediction = model.predict([features])[0]
+        features_df = process_input(player_data, feature_names)
+        prediction = model.predict(features_df)[0]
 
         return jsonify({
             'player': f"{data['first_name']} {data['last_name']}",
