@@ -5,11 +5,12 @@ import os
 import json
 from dotenv import load_dotenv
 
-from utils import remove_dots
+from utils import remove_dots, remove_accents
 
 load_dotenv()
 
 
+# PostgreSQL functions
 def get_db_connection():
     return psycopg2.connect(
         dbname=os.getenv("POSTGRES_DB"),
@@ -31,8 +32,23 @@ def fetch_player_db_data(conn, full_name):
         """, (full_name,))
         
         return cur.fetchall()
+    
+def get_all_players(conn, season):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""
+            SELECT DISTINCT player
+            FROM player_totals
+            WHERE season = %s
+            ORDER BY player
+        """, (season,))
+        
+        return cur.fetchall()
 
+
+# Ball Don't Lie API functions
 def fetch_player_api_data(first_name, last_name):
+    first_name = remove_accents(first_name)
+    last_name = remove_accents(last_name)
     api_url = f"https://api.balldontlie.io/v1/players?first_name={first_name}&last_name={last_name}"
     headers = {"Authorization": os.getenv("BALLDONTLIE_API_KEY")}
     response = requests.get(api_url, headers=headers)
@@ -42,22 +58,38 @@ def fetch_player_api_data(first_name, last_name):
     
     return response.json()['data'][0]
     
+
+# Main function
 def get_player_prediction_data(first_name, last_name):
+    original_first_name = first_name
+    original_last_name = last_name
     first_name = remove_dots(first_name)
     last_name = remove_dots(last_name)
     full_name = f"{first_name} {last_name}"
+    original_full_name = f"{original_first_name} {original_last_name}"
 
     try:
-        player_api_data = fetch_player_api_data(first_name, last_name)
+        # Try with normalized name first
+        try:
+            player_api_data = fetch_player_api_data(first_name, last_name)
+        except ValueError:
+            # If normalized name fails, try with original name
+            player_api_data = fetch_player_api_data(original_first_name, original_last_name)
+        
         position = player_api_data['position']
         team = player_api_data['team']['abbreviation']
 
         conn = get_db_connection()
         try:
+            # Try with normalized name first
             rows = fetch_player_db_data(conn, full_name)
             
             if not rows:
-                raise ValueError(f"Player {full_name} not found in database")
+                # If normalized name fails, try with original name
+                rows = fetch_player_db_data(conn, original_full_name)
+            
+            if not rows:
+                raise ValueError(f"Player {original_full_name} not found in database")
 
             player_data = {
                 "player_id": rows[0]['player_id'],
