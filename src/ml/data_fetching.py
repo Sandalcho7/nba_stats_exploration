@@ -26,7 +26,7 @@ def fetch_player_db_data(conn, full_name):
             SELECT player_id, age, experience, birth_year, 
                    fg_percent, x3p_percent, x2p_percent, e_fg_percent, ft_percent, pts, trb, ast
             FROM player_totals
-            WHERE REPLACE(player, '.', '') = %s
+            WHERE REPLACE(player, '.', '') = %s AND season <= '2024'
             ORDER BY season DESC
             LIMIT 16
         """, (full_name,))
@@ -43,6 +43,17 @@ def get_all_players(conn, season):
         """, (season,))
         
         return cur.fetchall()
+    
+def get_player_fg_percentage(conn, full_name, season):
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""
+            SELECT fg_percent
+            FROM player_totals
+            WHERE REPLACE(player, '.', '') = %s AND season = %s
+            LIMIT 1
+        """, (full_name, season))
+        
+        return cur.fetchone()
 
 
 # Ball Don't Lie API functions

@@ -9,6 +9,7 @@ import path from 'path';
 import fs from 'fs';
 
 import {
+    getPool,
     testDbConnection,
     createTableFromCSV,
     insertDataFromCSV,
@@ -17,6 +18,7 @@ import {
 } from './api/postgres-api.js';
 import { scrapeTopScorers } from './utils/scraping.js';
 import { fetchTeamsInfo } from './api/balldontlie-api.js';
+import { enhanceAndInsertFgPercentage } from './utils/data-agg.js';
 
 // Load environment variables
 dotenv.config();
@@ -381,6 +383,21 @@ app.post('/update-teams-info', async (req, res) => {
         res.status(500).json({
             status: 'error',
             message: `Failed to update team information`,
+            error: error.message,
+        });
+    }
+});
+
+app.post('/update-fg-percentage', async (req, res) => {
+    try {
+        const isDemo = req.body.demo === 'true';
+        const result = await enhanceAndInsertFgPercentage(logger, isDemo);
+        res.json({ status: 'success', message: result.message });
+    } catch (error) {
+        logger.error('Error updating FG percentage data:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to update FG percentage data',
             error: error.message,
         });
     }

@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from data_fetching import get_player_prediction_data, get_db_connection, get_all_players
+from data_fetching import get_player_prediction_data, get_db_connection, get_all_players, get_player_fg_percentage
 from utils import process_input
 import joblib
 
@@ -35,6 +35,7 @@ if st.button("Predict"):
         names = selected_player.split(maxsplit=1)
         if len(names) == 2:
             first_name, last_name = names
+            
             # Generate player data JSON
             player_data_json = get_player_prediction_data(first_name, last_name)
             player_data = json.loads(player_data_json)
@@ -46,7 +47,21 @@ if st.button("Predict"):
                 features_df = process_input(player_data, feature_names)
                 prediction = model.predict(features_df)[0]
 
-                st.success(f"Predicted Field Goal Percentage for {selected_player}: {prediction*100:.2f}%")
+                st.success(f"Predicted Field Goal Percentage for {selected_player}: {prediction * 100:.2f}%")
+
+                # Fetch actual FG percentage for 2025
+                full_name = selected_player.replace('.', '')  # Normalize name format if necessary
+                actual_fg_2025_row = get_player_fg_percentage(conn, full_name, '2025')
+                actual_fg_2025 = actual_fg_2025_row['fg_percent'] if actual_fg_2025_row else None
+                
+                if actual_fg_2025 is not None:
+                    st.info(f"Actual Field Goal Percentage for 2025: {actual_fg_2025 * 100:.2f}%")
+                    
+                    # Calculate and display the difference
+                    difference = (prediction - actual_fg_2025) * 100
+                    st.write(f"Difference (Predicted - Actual): {difference:.2f}%")
+                else:
+                    st.warning("Actual Field Goal Percentage for 2025 not available.")
 
                 with st.expander("Player Data", expanded=False):
                     st.json(player_data)
