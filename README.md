@@ -35,8 +35,10 @@ project/
 │   │   └── utils.py                # Utilities functions
 │   │
 │   ├── utils/
+│   │   ├── data-agg.js             # Data aggregation and enhancement functions
 │   │   ├── scraping.js             # Scraping functions
-│   │   └── sql-generation.js       # SQL requests generation functions
+│   │   ├── sql-generation.js       # SQL requests generation functions
+│   │   └── utilities.js            # Utilities functions
 │   │
 │   └── server.js                   # API script
 │

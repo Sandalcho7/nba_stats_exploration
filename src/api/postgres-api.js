@@ -30,7 +30,7 @@ const mainPool = createPool(false);
 const demoPool = createPool(true);
 
 // Function to get the appropriate pool
-function getPool(isDemo = false) {
+export function getPool(isDemo = false) {
     return isDemo ? demoPool : mainPool;
 }
 
