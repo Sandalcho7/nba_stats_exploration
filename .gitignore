@@ -2,11 +2,10 @@
 .env
 
 # Cache and modules
-__pycache__/
 node_modules/
 
 # Miscellaneous directories
 data/
 uploads/
-src/ml/models/
-src/ml/mlruns
+models/
+mlruns/
