@@ -17,42 +17,54 @@ def get_db_connection():
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),
         host=os.getenv("POSTGRES_HOST"),
-        port=os.getenv("POSTGRES_PORT")
+        port=os.getenv("POSTGRES_PORT"),
     )
+
 
 def fetch_player_db_data(conn, full_name):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT player_id, age, experience, birth_year, 
                    fg_percent, x3p_percent, x2p_percent, e_fg_percent, ft_percent, pts, trb, ast
             FROM player_totals
             WHERE REPLACE(player, '.', '') = %s AND season <= '2024'
             ORDER BY season DESC
             LIMIT 16
-        """, (full_name,))
-        
+        """,
+            (full_name,),
+        )
+
         return cur.fetchall()
-    
+
+
 def get_all_players(conn, season):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT DISTINCT player
             FROM player_totals
             WHERE season = %s
             ORDER BY player
-        """, (season,))
-        
+        """,
+            (season,),
+        )
+
         return cur.fetchall()
-    
+
+
 def get_player_fg_percentage(conn, full_name, season):
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT fg_percent
             FROM player_totals
             WHERE REPLACE(player, '.', '') = %s AND season = %s
             LIMIT 1
-        """, (full_name, season))
-        
+        """,
+            (full_name, season),
+        )
+
         return cur.fetchone()
 
 
@@ -63,12 +75,12 @@ def fetch_player_api_data(first_name, last_name):
     api_url = f"https://api.balldontlie.io/v1/players?first_name={first_name}&last_name={last_name}"
     headers = {"Authorization": os.getenv("BALLDONTLIE_API_KEY")}
     response = requests.get(api_url, headers=headers)
-    
-    if response.status_code != 200 or not response.json()['data']:
+
+    if response.status_code != 200 or not response.json()["data"]:
         raise ValueError(f"Player {first_name} {last_name} not found in API")
-    
-    return response.json()['data'][0]
-    
+
+    return response.json()["data"][0]
+
 
 # Main function
 def get_player_prediction_data(first_name, last_name):
@@ -85,43 +97,45 @@ def get_player_prediction_data(first_name, last_name):
             player_api_data = fetch_player_api_data(first_name, last_name)
         except ValueError:
             # If normalized name fails, try with original name
-            player_api_data = fetch_player_api_data(original_first_name, original_last_name)
-        
-        position = player_api_data['position']
-        team = player_api_data['team']['abbreviation']
+            player_api_data = fetch_player_api_data(
+                original_first_name, original_last_name
+            )
+
+        position = player_api_data["position"]
+        team = player_api_data["team"]["abbreviation"]
 
         conn = get_db_connection()
         try:
             # Try with normalized name first
             rows = fetch_player_db_data(conn, full_name)
-            
+
             if not rows:
                 # If normalized name fails, try with original name
                 rows = fetch_player_db_data(conn, original_full_name)
-            
+
             if not rows:
                 raise ValueError(f"Player {original_full_name} not found in database")
 
             player_data = {
-                "player_id": rows[0]['player_id'],
-                "age": rows[0]['age'] + 1,
-                "experience": rows[0]['experience'] + 1,
-                "birth_year": rows[0]['birth_year'],
+                "player_id": rows[0]["player_id"],
+                "age": rows[0]["age"] + 1,
+                "experience": rows[0]["experience"] + 1,
+                "birth_year": rows[0]["birth_year"],
                 "pos": position,
                 "tm": team,
-                "prev_seasons": []
+                "prev_seasons": [],
             }
 
             for row in rows:
                 season_data = {
-                    "fg_percent": row['fg_percent'],
-                    "x3p_percent": row['x3p_percent'],
-                    "x2p_percent": row['x2p_percent'],
-                    "e_fg_percent": row['e_fg_percent'],
-                    "ft_percent": row['ft_percent'],
-                    "pts": row['pts'],
-                    "trb": row['trb'],
-                    "ast": row['ast']
+                    "fg_percent": row["fg_percent"],
+                    "x3p_percent": row["x3p_percent"],
+                    "x2p_percent": row["x2p_percent"],
+                    "e_fg_percent": row["e_fg_percent"],
+                    "ft_percent": row["ft_percent"],
+                    "pts": row["pts"],
+                    "trb": row["trb"],
+                    "ast": row["ast"],
                 }
                 player_data["prev_seasons"].append(season_data)
 
