@@ -27,13 +27,6 @@ project/
 │   │   ├── balldontlie-api.js      # Ball Don't Lie API functions
 │   │   └── postgres-api.js         # Postgres API functions
 │   │
-│   ├── ml/                         # Machine learning part
-│   │   ├── models/                 # Models directory
-│   │   ├── app.py                  # API Server exposing model
-│   │   ├── data_fetching.py        # Data fetching functions
-│   │   ├── model_training.ipynb    # Data processing and model training notebook
-│   │   └── utils.py                # Utilities functions
-│   │
 │   ├── utils/
 │   │   ├── data-agg.js             # Data aggregation and enhancement functions
 │   │   ├── scraping.js             # Scraping functions
