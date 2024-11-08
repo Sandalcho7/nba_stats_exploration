@@ -9,3 +9,4 @@ node_modules/
 data/
 uploads/
 src/ml/models/
+src/ml/mlruns
