@@ -20,17 +20,24 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}  # Use the AZURE_CREDENTIALS secret
 
-    # Step 2: Log in to Azure Container Registry (ACR)
+    # Step 2: Install Docker Compose
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose --version  # Verify that it's installed
+
+    # Step 3: Log in to Azure Container Registry (ACR)
     - name: Log in to ACR
       run: |
         echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    # Step 3: Build Docker images from Dockerfile or docker-compose
+    # Step 4: Build Docker images
     - name: Build Docker images
       run: |
         docker-compose -f docker-compose.yml build  # Build images as defined in the docker-compose.yml
 
-    # Step 4: Tag images with ACR registry
+    # Step 5: Tag Docker images for ACR
     - name: Tag Docker images
       run: |
         docker tag api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
@@ -41,7 +48,7 @@ jobs:
         docker tag prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
         docker tag alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
 
-    # Step 5: Push Docker images to ACR
+    # Step 6: Push Docker images to ACR
     - name: Push Docker images to ACR
       run: |
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
@@ -52,7 +59,7 @@ jobs:
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
 
-    # Step 6: Deploy API Server container
+    # Step 7: Deploy API Server container to Azure Container Instances (ACI)
     - name: Deploy api-server container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -66,7 +73,7 @@ jobs:
           --environment-variables POSTGRES_HOST=postgres POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 8080
 
-    # Step 7: Deploy Postgres container
+    # Step 8: Deploy Postgres container to Azure Container Instances (ACI)
     - name: Deploy postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -80,7 +87,7 @@ jobs:
           --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 5432
 
-    # Step 8: Deploy demo-postgres container
+    # Step 9: Deploy demo-postgres container to Azure Container Instances (ACI)
     - name: Deploy demo-postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -94,7 +101,7 @@ jobs:
           --environment-variables POSTGRES_DB=${{ secrets.DEMO_POSTGRES_DB }} POSTGRES_USER=${{ secrets.DEMO_POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.DEMO_POSTGRES_PASSWORD }} \
           --ports 5432
 
-    # Step 9: Deploy Grafana container
+    # Step 10: Deploy Grafana container to Azure Container Instances (ACI)
     - name: Deploy grafana container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -105,7 +112,7 @@ jobs:
           --ports 3000 \
           --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false
 
-    # Step 10: Deploy Loki container
+    # Step 11: Deploy Loki container to Azure Container Instances (ACI)
     - name: Deploy loki container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -116,7 +123,7 @@ jobs:
           --ports 3100 \
           --command-line "-config.file=/etc/loki/local-config.yaml"
 
-    # Step 11: Deploy Prometheus container
+    # Step 12: Deploy Prometheus container to Azure Container Instances (ACI)
     - name: Deploy prometheus container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -127,7 +134,7 @@ jobs:
           --ports 9090 \
           --command-line "--config.file=/etc/prometheus/prometheus.yml"
 
-    # Step 12: Deploy Alertmanager container
+    # Step 13: Deploy Alertmanager container to Azure Container Instances (ACI)
     - name: Deploy alertmanager container to Azure Container Instances (ACI)
       run: |
         az container create \
