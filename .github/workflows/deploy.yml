@@ -1,12 +1,12 @@
-name: Deploy to Azure
+name: Build and Deploy to Azure
 
 on:
   push:
     branches:
-      - main  # Or any other branch you want to trigger the deployment from
+      - main  # Trigger on push to the main branch (or whichever branch you want)
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
 
@@ -14,18 +14,45 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Step 1: Login to Azure using the service principal
+    # Step 1: Log in to Azure using the service principal
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}  # AZURE_CREDENTIALS contains the JSON credentials for your Azure Service Principal
+        creds: ${{ secrets.AZURE_CREDENTIALS }}  # Use the AZURE_CREDENTIALS secret
 
     # Step 2: Log in to Azure Container Registry (ACR)
-    - name: Log in to Azure Container Registry
+    - name: Log in to ACR
       run: |
         echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    # Step 3: Deploy API Server container
+    # Step 3: Build Docker images from Dockerfile or docker-compose
+    - name: Build Docker images
+      run: |
+        docker-compose -f docker-compose.yml build  # Build images as defined in the docker-compose.yml
+
+    # Step 4: Tag images with ACR registry
+    - name: Tag Docker images
+      run: |
+        docker tag api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
+        docker tag postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
+        docker tag demo-postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
+        docker tag grafana:latest ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
+        docker tag loki:2.9.2 ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
+        docker tag prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
+        docker tag alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
+
+    # Step 5: Push Docker images to ACR
+    - name: Push Docker images to ACR
+      run: |
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
+
+    # Step 6: Deploy API Server container
     - name: Deploy api-server container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -36,9 +63,10 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --environment-variables POSTGRES_HOST=postgres POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 8080
 
-    # Step 4: Deploy Postgres container
+    # Step 7: Deploy Postgres container
     - name: Deploy postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -49,9 +77,10 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 5432
 
-    # Step 5: Deploy demo-postgres container
+    # Step 8: Deploy demo-postgres container
     - name: Deploy demo-postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -62,66 +91,49 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --environment-variables POSTGRES_DB=${{ secrets.DEMO_POSTGRES_DB }} POSTGRES_USER=${{ secrets.DEMO_POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.DEMO_POSTGRES_PASSWORD }} \
           --ports 5432
 
-    # Step 6: Deploy Loki container
-    - name: Deploy loki container to Azure Container Instances (ACI)
-      run: |
-        az container create \
-          --resource-group anatole-RG \
-          --name loki \
-          --image grafana/loki:2.9.2 \
-          --cpu 1 --memory 2 \
-          --ports 3100 \
-          --command-line "-config.file=/etc/loki/local-config.yaml"
-
-    # Step 7: Deploy Grafana container
+    # Step 9: Deploy Grafana container
     - name: Deploy grafana container to Azure Container Instances (ACI)
       run: |
         az container create \
           --resource-group anatole-RG \
           --name grafana \
-          --image grafana/grafana:latest \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest \
           --cpu 1 --memory 2 \
           --ports 3000 \
-          --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false \
-          --volume-mounts source=./grafana/provisioning,target=/etc/grafana/provisioning
+          --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false
 
-    # Step 8: Deploy Prometheus container
+    # Step 10: Deploy Loki container
+    - name: Deploy loki container to Azure Container Instances (ACI)
+      run: |
+        az container create \
+          --resource-group anatole-RG \
+          --name loki \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2 \
+          --cpu 1 --memory 2 \
+          --ports 3100 \
+          --command-line "-config.file=/etc/loki/local-config.yaml"
+
+    # Step 11: Deploy Prometheus container
     - name: Deploy prometheus container to Azure Container Instances (ACI)
       run: |
         az container create \
           --resource-group anatole-RG \
           --name prometheus \
-          --image prom/prometheus:latest \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest \
           --cpu 1 --memory 2 \
           --ports 9090 \
-          --command-line "--config.file=/etc/prometheus/prometheus.yml" \
-          --volume-mounts source=./prometheus,target=/etc/prometheus
+          --command-line "--config.file=/etc/prometheus/prometheus.yml"
 
-    # Step 9: Deploy Alertmanager container
+    # Step 12: Deploy Alertmanager container
     - name: Deploy alertmanager container to Azure Container Instances (ACI)
       run: |
         az container create \
           --resource-group anatole-RG \
           --name alertmanager \
-          --image prom/alertmanager:v0.27.0 \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0 \
           --cpu 1 --memory 2 \
           --ports 9093 \
-          --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager" \
-          --volume-mounts source=./alertmanager,target=/etc/alertmanager
-
-    # Optional: Clean up any previous containers (if you want to delete them before deploying)
-    - name: Clean up previous containers (optional)
-      run: |
-        az container delete --name api-server --resource-group anatole-RG --yes
-        az container delete --name postgres --resource-group anatole-RG --yes
-        az container delete --name demo-postgres --resource-group anatole-RG --yes
-        az container delete --name loki --resource-group anatole-RG --yes
-        az container delete --name grafana --resource-group anatole-RG --yes
-        az container delete --name prometheus --resource-group anatole-RG --yes
-        az container delete --name alertmanager --resource-group anatole-RG --yes
-
-    # Optional: Verify the containers are running in Azure
-    - name: List running Azure Containers
-      run: az container list --resource-group anatole-RG --output table
+          --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager"
