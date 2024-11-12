@@ -131,7 +131,7 @@ jobs:
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 3100 \
-          --command-line "-config.file=/etc/loki/local-config.yaml"
+          --command-line "--config.file=/etc/loki/local-config.yaml"
 
     # Step 12: Deploy Prometheus container to Azure Container Instances (ACI)
     - name: Deploy prometheus container to Azure Container Instances (ACI)
