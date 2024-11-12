@@ -130,8 +130,7 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 3100 \
-          --command-line "--config.file=/etc/loki/local-config.yaml"
+          --ports 3100
 
     # Step 12: Deploy Prometheus container to Azure Container Instances (ACI)
     - name: Deploy prometheus container to Azure Container Instances (ACI)
@@ -144,8 +143,7 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 9090 \
-          --command-line "--config.file=/etc/prometheus/prometheus.yml"
+          --ports 9090
 
     # Step 13: Deploy Alertmanager container to Azure Container Instances (ACI)
     - name: Deploy alertmanager container to Azure Container Instances (ACI)
@@ -158,5 +156,4 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 9093 \
-          --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager"
+          --ports 9093
