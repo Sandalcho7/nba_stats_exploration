@@ -1,84 +1,46 @@
-name: Build and Deploy to Azure
+name: Deploy to Azure ACI
 
 on:
   push:
     branches:
-      - main  # Trigger on push to the main branch (or whichever branch you want)
+      - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-    environment: production
-
     steps:
-    - name: Checkout repository
+      
+    # Step 1: Checkout code
+    - name: Checkout code
       uses: actions/checkout@v2
 
-    # Step 1: Log in to Azure using the service principal
-    - name: Log in to Azure
+    # Step 2: Log in to Azure CLI
+    - name: Log in to Azure CLI
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}  # Use the AZURE_CREDENTIALS secret
-
-    # Step 2: Install Docker Compose
-    - name: Install Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose --version  # Verify that it's installed
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     # Step 3: Log in to Azure Container Registry (ACR)
-    - name: Log in to ACR
+    - name: Log in to Azure Container Registry
       run: |
-        echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+        az acr login --name ${{ secrets.ACR_NAME }}
 
-    # Step 4: Build Docker images from docker-compose.yml (only for api-server)
-    - name: Build Docker image for api-server
+    # Step 4: Build and push Docker images
+    - name: Build and push Docker images
       run: |
-        docker-compose -f docker-compose.yml build api-server  # Build only the api-server image
-
-    # Step 5: Pull Docker images from Docker Hub for other services (if not in ACR)
-    - name: Pull Docker images for services from Docker Hub
-      run: |
-        docker pull grafana/grafana:latest
-        docker pull grafana/loki:2.9.2
-        docker pull prom/prometheus:latest
-        docker pull prom/alertmanager:v0.27.0
-        docker pull postgres:14
-
-    # Step 6: Tag Docker images for ACR
-    - name: Tag Docker images for ACR
-      run: |
-        # Tag API server image (built locally)
-        docker tag api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
-        
-        # Tag Grafana image
-        docker tag grafana/grafana:latest ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
-        
-        # Tag Loki image
-        docker tag grafana/loki:2.9.2 ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
-        
-        # Tag Prometheus image
-        docker tag prom/prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
-        
-        # Tag Alertmanager image
-        docker tag prom/alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
-        
-        # Tag Postgres image
-        docker tag postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
-
-    # Step 7: Push Docker images to ACR
-    - name: Push Docker images to ACR
-      run: |
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest ./api-server
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14 ./postgres
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest ./grafana
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest ./prometheus
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0 ./alertmanager
+        docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
 
-    # Step 8: Deploy api-server container to Azure Container Instances (ACI)
-    - name: Deploy api-server container to Azure Container Instances (ACI)
+    # Step 5: Deploy API server to ACI
+    - name: Deploy API server
       run: |
         az container create \
           --resource-group anatole-RG \
@@ -91,8 +53,8 @@ jobs:
           --environment-variables POSTGRES_HOST=postgres POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 8080
 
-        # Step 9: Deploy postgres container to Azure Container Instances (ACI)
-    - name: Deploy postgres container to Azure Container Instances (ACI)
+    # Step 6: Deploy Postgres to ACI
+    - name: Deploy Postgres
       run: |
         az container create \
           --resource-group anatole-RG \
@@ -105,8 +67,8 @@ jobs:
           --ports 5432 \
           --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
 
-    # Step 10: Deploy Grafana container to Azure Container Instances (ACI)
-    - name: Deploy grafana container to Azure Container Instances (ACI)
+    # Step 7: Deploy Grafana to ACI
+    - name: Deploy Grafana
       run: |
         az container create \
           --resource-group anatole-RG \
@@ -119,41 +81,45 @@ jobs:
           --ports 3000 \
           --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false
 
-    # Step 11: Deploy Loki container to Azure Container Instances (ACI)
-    - name: Deploy loki container to Azure Container Instances (ACI)
+    # Step 8: Retrieve FQDNs for all services
+    - name: Retrieve FQDNs
+      id: fqdn
       run: |
-        az container create \
-          --resource-group anatole-RG \
-          --name loki \
-          --image ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2 \
-          --cpu 1 --memory 2 \
-          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
-          --registry-username ${{ secrets.ACR_USERNAME }} \
-          --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 3100
+        echo "LOKI_FQDN=$(az container show --resource-group anatole-RG --name loki --query "ipAddress.fqdn" -o tsv)" >> $GITHUB_ENV
+        echo "PROMETHEUS_FQDN=$(az container show --resource-group anatole-RG --name prometheus --query "ipAddress.fqdn" -o tsv)" >> $GITHUB_ENV
+        echo "ALERTMANAGER_FQDN=$(az container show --resource-group anatole-RG --name alertmanager --query "ipAddress.fqdn" -o tsv)" >> $GITHUB_ENV
+        echo "API_SERVER_FQDN=$(az container show --resource-group anatole-RG --name api-server --query "ipAddress.fqdn" -o tsv)" >> $GITHUB_ENV
+        echo "GRAFANA_FQDN=$(az container show --resource-group anatole-RG --name grafana --query "ipAddress.fqdn" -o tsv)" >> $GITHUB_ENV
 
-    # Step 12: Deploy Prometheus container to Azure Container Instances (ACI)
-    - name: Deploy prometheus container to Azure Container Instances (ACI)
+    # Step 9: Replace placeholders in config files
+    - name: Update Alertmanager and Prometheus config files
       run: |
-        az container create \
-          --resource-group anatole-RG \
-          --name prometheus \
-          --image ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest \
-          --cpu 1 --memory 2 \
-          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
-          --registry-username ${{ secrets.ACR_USERNAME }} \
-          --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 9090
+        sed -i "s|\${API_SERVER_FQDN}|${{ env.API_SERVER_FQDN }}|g" alertmanager/config.yml
+        sed -i "s|\${API_SERVER_FQDN}|${{ env.API_SERVER_FQDN }}|g" prometheus/prometheus.yml
+        sed -i "s|\${LOKI_FQDN}|${{ env.LOKI_FQDN }}|g" prometheus/prometheus.yml
+        sed -i "s|\${GRAFANA_FQDN}|${{ env.GRAFANA_FQDN }}|g" prometheus/prometheus.yml
+        sed -i "s|\${ALERTMANAGER_FQDN}|${{ env.ALERTMANAGER_FQDN }}|g" prometheus/prometheus.yml
 
-    # Step 13: Deploy Alertmanager container to Azure Container Instances (ACI)
-    - name: Deploy alertmanager container to Azure Container Instances (ACI)
+    # Step 10: Deploy Alertmanager to ACI
+    - name: Deploy Alertmanager
       run: |
         az container create \
           --resource-group anatole-RG \
           --name alertmanager \
           --image ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0 \
           --cpu 1 --memory 2 \
-          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
-          --registry-username ${{ secrets.ACR_USERNAME }} \
-          --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 9093
+          --ports 9093 \
+          --files alertmanager/config.yml:/etc/alertmanager/config.yml \
+          --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager"
+
+    # Step 11: Deploy Prometheus to ACI
+    - name: Deploy Prometheus
+      run: |
+        az container create \
+          --resource-group anatole-RG \
+          --name prometheus \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest \
+          --cpu 1 --memory 2 \
+          --ports 9090 \
+          --files prometheus/prometheus.yml:/etc/prometheus/prometheus.yml \
+          --command-line "--config.file=/etc/prometheus/prometheus.yml"
