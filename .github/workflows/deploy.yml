@@ -23,7 +23,7 @@ jobs:
     # Step 3: Log in to Azure Container Registry (ACR)
     - name: Log in to Azure Container Registry
       run: |
-        az acr login --name ${{ secrets.ACR_NAME }}
+        az acr login --name appnba
 
     # Step 4: Build and push Docker images
     - name: Build and push Docker images
