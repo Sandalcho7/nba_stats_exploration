@@ -32,34 +32,42 @@ jobs:
       run: |
         echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    # Step 4: Build Docker images from docker-compose.yml
-    - name: Build Docker images from docker-compose
+    # Step 4: Build Docker images from docker-compose.yml (only for api-server)
+    - name: Build Docker image for api-server
       run: |
-        docker-compose -f docker-compose.yml build
+        docker-compose -f docker-compose.yml build api-server  # Build only the api-server image
 
-    # Step 5: Tag Docker images for ACR
-    - name: Tag Docker images
+    # Step 5: Pull Docker images from Docker Hub for other services (if not in ACR)
+    - name: Pull Docker images for services from Docker Hub
       run: |
-        # API server
+        docker pull grafana/grafana:latest
+        docker pull grafana/loki:2.9.2
+        docker pull prom/prometheus:latest
+        docker pull prom/alertmanager:v0.27.0
+        docker pull postgres:14
+
+    # Step 6: Tag Docker images for ACR
+    - name: Tag Docker images for ACR
+      run: |
+        # Tag API server image (built locally)
         docker tag api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
         
-        # Grafana
+        # Tag Grafana image
         docker tag grafana/grafana:latest ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
         
-        # Loki
+        # Tag Loki image
         docker tag grafana/loki:2.9.2 ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
         
-        # Prometheus
+        # Tag Prometheus image
         docker tag prom/prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
         
-        # Alertmanager
+        # Tag Alertmanager image
         docker tag prom/alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
         
-        # Postgres
+        # Tag Postgres image
         docker tag postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
-        docker tag postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
 
-    # Step 6: Push Docker images to ACR
+    # Step 7: Push Docker images to ACR
     - name: Push Docker images to ACR
       run: |
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
@@ -68,9 +76,8 @@ jobs:
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
-        docker push ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
 
-    # Step 7: Deploy api-server container to Azure Container Instances (ACI)
+    # Step 8: Deploy api-server container to Azure Container Instances (ACI)
     - name: Deploy api-server container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -84,7 +91,7 @@ jobs:
           --environment-variables POSTGRES_HOST=postgres POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 8080
 
-    # Step 8: Deploy postgres container to Azure Container Instances (ACI)
+    # Step 9: Deploy postgres container to Azure Container Instances (ACI)
     - name: Deploy postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -96,20 +103,6 @@ jobs:
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
           --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-          --ports 5432
-
-    # Step 9: Deploy demo-postgres container to Azure Container Instances (ACI)
-    - name: Deploy demo-postgres container to Azure Container Instances (ACI)
-      run: |
-        az container create \
-          --resource-group anatole-RG \
-          --name demo-postgres \
-          --image ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14 \
-          --cpu 1 --memory 2 \
-          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
-          --registry-username ${{ secrets.ACR_USERNAME }} \
-          --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --environment-variables POSTGRES_DB=${{ secrets.DEMO_POSTGRES_DB }} POSTGRES_USER=${{ secrets.DEMO_POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.DEMO_POSTGRES_PASSWORD }} \
           --ports 5432
 
     # Step 10: Deploy Grafana container to Azure Container Instances (ACI)
