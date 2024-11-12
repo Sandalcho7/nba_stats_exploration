@@ -1,83 +1,109 @@
-services:
-  loki:
-    image: grafana/loki:2.9.2
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
+name: Deploy to Azure
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_UNIFIED_ALERTING_ENABLED=true
-      - GF_ALERTING_ENABLED=false
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-    depends_on:
-      - loki
-      - prometheus
-      - alertmanager
+on:
+  push:
+    branches:
+      - main  # Trigger deployment when code is pushed to the main branch
 
-  api-server:
-    image: appnba.azurecr.io/api-server:latest
-    ports:
-      - "8080:3000"
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "5"
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus:/etc/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - "9090:9090"
+    steps:
+    # Step 1: Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-  alertmanager:
-    image: prom/alertmanager:v0.27.0
-    volumes:
-      - ./alertmanager:/etc/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/config.yml'
-      - '--storage.path=/alertmanager'
-    ports:
-      - "9093:9093"
+    # Step 2: Set up Docker Buildx (needed for building images in a more advanced way)
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-  postgres:
-    image: appnba.azurecr.io/postgres:14
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT}:5432"
+    # Step 3: Install Docker Compose
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
 
-  demo-postgres:
-    image: appnba.azurecr.io/demo-postgres:14
-    environment:
-      - POSTGRES_DB=${DEMO_POSTGRES_DB}
-      - POSTGRES_USER=${DEMO_POSTGRES_USER}
-      - POSTGRES_PASSWORD=${DEMO_POSTGRES_PASSWORD}
-    volumes:
-      - demo_postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DEMO_POSTGRES_PORT}:5432"
+    # Step 4: Log in to Azure Container Registry (ACR)
+    - name: Log in to Azure Container Registry
+      run: |
+        echo ${{ secrets.AZURE_REGISTRY_PASSWORD }} | docker login appnba.azurecr.io -u ${{ secrets.AZURE_REGISTRY_USERNAME }} --password-stdin
 
-volumes:
-  postgres_data:
-  demo_postgres_data:
+    # Step 5: Build Docker images using docker-compose
+    - name: Build Docker images using Docker Compose
+      run: |
+        docker-compose -f docker-compose.yml build
+
+    # Step 6: Push Docker images to Azure Container Registry
+    - name: Push Docker images to Azure Container Registry
+      run: |
+        docker-compose -f docker-compose.yml push
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    # Step 1: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Step 2: Install Azure CLI
+    - name: Install Azure CLI
+      run: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+    # Step 3: Log in to Azure using service principal
+    - name: Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # Step 4: Deploy to Azure Container Instances (ACI)
+    - name: Deploy to Azure Container Instances (ACI)
+      run: |
+        # Deploy api-server container
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name api-server \
+          --image appnba.azurecr.io/api-server:latest \
+          --cpu 1 --memory 2 \
+          --registry-login-server appnba.azurecr.io \
+          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
+          --ports 8080
+
+        # Deploy postgres container (you can choose whether this should be an ACI or part of a more permanent solution)
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name postgres \
+          --image appnba.azurecr.io/postgres:14 \
+          --cpu 1 --memory 2 \
+          --registry-login-server appnba.azurecr.io \
+          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
+          --ports ${DEMO_POSTGRES_PORT}
+
+        # Deploy demo-postgres container (optional)
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name demo-postgres \
+          --image appnba.azurecr.io/demo-postgres:14 \
+          --cpu 1 --memory 2 \
+          --registry-login-server appnba.azurecr.io \
+          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
+          --ports ${DEMO_POSTGRES_PORT}
+
+        # Optional: You can deploy other services like grafana, loki, prometheus as well.
+        # This can be done using similar commands to the ones above.
+        # Example for Grafana:
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name grafana \
+          --image grafana/grafana:latest \
+          --cpu 1 --memory 2 \
+          --ports 3000 \
+          --registry-login-server appnba.azurecr.io \
+          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
+          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }}
