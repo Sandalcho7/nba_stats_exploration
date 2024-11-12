@@ -32,21 +32,21 @@ jobs:
       run: |
         echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
 
-    # Step 4: Build Docker images
-    - name: Build Docker images
+    # Step 4: Build Docker image for api-server from Dockerfile
+    - name: Build Docker image for api-server
       run: |
-        docker-compose -f docker-compose.yml build  # Build images as defined in the docker-compose.yml
+        docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest .  # Build from the Dockerfile in the current directory
 
-    # Step 5: Tag Docker images for ACR
+    # Step 5: Tag Docker images for ACR (if needed for other services)
     - name: Tag Docker images
       run: |
-        docker tag api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
-        docker tag postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
-        docker tag demo-postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
-        docker tag grafana:latest ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
-        docker tag loki:2.9.2 ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
-        docker tag prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
-        docker tag alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
+        docker tag ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest
+        docker tag grafana/grafana:latest ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest
+        docker tag grafana/loki:2.9.2 ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2
+        docker tag prom/prometheus:latest ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
+        docker tag prom/alertmanager:v0.27.0 ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
+        docker tag appnba.azurecr.io/postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14
+        docker tag appnba.azurecr.io/demo-postgres:14 ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14
 
     # Step 6: Push Docker images to ACR
     - name: Push Docker images to ACR
@@ -59,7 +59,7 @@ jobs:
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest
         docker push ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0
 
-    # Step 7: Deploy API Server container to Azure Container Instances (ACI)
+    # Step 7: Deploy api-server container to Azure Container Instances (ACI)
     - name: Deploy api-server container to Azure Container Instances (ACI)
       run: |
         az container create \
