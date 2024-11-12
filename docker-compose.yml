@@ -1,6 +1,7 @@
 networks:
   monitoring-network:
-    driver: bridge
+    name: monitoring-network
+    external: true
 
 services:
   loki:
