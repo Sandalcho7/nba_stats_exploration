@@ -102,8 +102,8 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 5432
+          --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
 
     # Step 10: Deploy Grafana container to Azure Container Instances (ACI)
     - name: Deploy grafana container to Azure Container Instances (ACI)
@@ -113,6 +113,9 @@ jobs:
           --name grafana \
           --image ${{ secrets.ACR_LOGIN_SERVER }}/grafana:latest \
           --cpu 1 --memory 2 \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 3000 \
           --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false
 
@@ -124,6 +127,9 @@ jobs:
           --name loki \
           --image ${{ secrets.ACR_LOGIN_SERVER }}/loki:2.9.2 \
           --cpu 1 --memory 2 \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 3100 \
           --command-line "-config.file=/etc/loki/local-config.yaml"
 
@@ -135,6 +141,9 @@ jobs:
           --name prometheus \
           --image ${{ secrets.ACR_LOGIN_SERVER }}/prometheus:latest \
           --cpu 1 --memory 2 \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 9090 \
           --command-line "--config.file=/etc/prometheus/prometheus.yml"
 
@@ -146,5 +155,8 @@ jobs:
           --name alertmanager \
           --image ${{ secrets.ACR_LOGIN_SERVER }}/alertmanager:v0.27.0 \
           --cpu 1 --memory 2 \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 9093 \
           --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager"
