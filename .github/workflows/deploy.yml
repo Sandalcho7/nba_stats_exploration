@@ -91,7 +91,7 @@ jobs:
           --environment-variables POSTGRES_HOST=postgres POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
           --ports 8080
 
-    # Step 9: Deploy postgres container to Azure Container Instances (ACI)
+        # Step 9: Deploy postgres container to Azure Container Instances (ACI)
     - name: Deploy postgres container to Azure Container Instances (ACI)
       run: |
         az container create \
@@ -102,8 +102,8 @@ jobs:
           --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
           --registry-username ${{ secrets.ACR_USERNAME }} \
           --registry-password ${{ secrets.ACR_PASSWORD }} \
-          --ports 5432
-          --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+          --ports 5432 \
+          --environment-variables POSTGRES_DB=${{ secrets.POSTGRES_DB }} POSTGRES_USER=${{ secrets.POSTGRES_USER }} POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
 
     # Step 10: Deploy Grafana container to Azure Container Instances (ACI)
     - name: Deploy grafana container to Azure Container Instances (ACI)
