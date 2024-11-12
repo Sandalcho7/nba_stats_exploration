@@ -9,12 +9,6 @@ services:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    environment:
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_UNIFIED_ALERTING_ENABLED=true
-      - GF_ALERTING_ENABLED=false
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
@@ -26,11 +20,6 @@ services:
     image: appnba.azurecr.io/api-server:latest
     ports:
       - "8080:3000"
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     logging:
       driver: "json-file"
       options:
@@ -58,25 +47,17 @@ services:
 
   postgres:
     image: appnba.azurecr.io/postgres:14
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5432:5432"
 
   demo-postgres:
     image: appnba.azurecr.io/demo-postgres:14
-    environment:
-      - POSTGRES_DB=${DEMO_POSTGRES_DB}
-      - POSTGRES_USER=${DEMO_POSTGRES_USER}
-      - POSTGRES_PASSWORD=${DEMO_POSTGRES_PASSWORD}
     volumes:
       - demo_postgres_data:/var/lib/postgresql/data
     ports:
-      - "${DEMO_POSTGRES_PORT}:5432"
+      - "5432:5432"
 
 volumes:
   postgres_data:
