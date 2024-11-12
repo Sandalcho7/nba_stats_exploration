@@ -17,7 +17,8 @@ services:
       - alertmanager
 
   api-server:
-    image: appnba.azurecr.io/api-server:latest
+    build:
+      context: .
     ports:
       - "8080:3000"
     logging:
@@ -46,14 +47,14 @@ services:
       - "9093:9093"
 
   postgres:
-    image: appnba.azurecr.io/postgres:14
+    image: postgres:14
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
   demo-postgres:
-    image: appnba.azurecr.io/demo-postgres:14
+    image: postgres:14
     volumes:
       - demo_postgres_data:/var/lib/postgresql/data
     ports:
