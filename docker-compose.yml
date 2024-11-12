@@ -19,6 +19,7 @@ services:
   api-server:
     build:
       context: .
+      dockerfile: Dockerfile.api
     ports:
       - "8080:3000"
     logging:
