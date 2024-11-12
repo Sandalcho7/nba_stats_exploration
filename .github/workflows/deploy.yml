@@ -3,108 +3,125 @@ name: Deploy to Azure
 on:
   push:
     branches:
-      - main  # Trigger deployment when code is pushed to the main branch
+      - main  # Or any other branch you want to trigger the deployment from
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    # Step 1: Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Step 2: Set up Docker Buildx (needed for building images in a more advanced way)
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-
-    # Step 3: Install Docker Compose
-    - name: Install Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose --version  # This will output the version to confirm it's installed
-
-    # Step 4: Log in to Azure Container Registry (ACR)
-    - name: Log in to Azure Container Registry
-      run: |
-        echo ${{ secrets.AZURE_REGISTRY_PASSWORD }} | docker login appnba.azurecr.io -u ${{ secrets.AZURE_REGISTRY_USERNAME }} --password-stdin
-
-    # Step 5: Build Docker images using docker-compose
-    - name: Build Docker images using Docker Compose
-      run: |
-        docker-compose -f docker-compose.yml build
-
-    # Step 6: Push Docker images to Azure Container Registry
-    - name: Push Docker images to Azure Container Registry
-      run: |
-        docker-compose -f docker-compose.yml push
-
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    environment: production
 
     steps:
-    # Step 1: Checkout repository
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Step 2: Install Azure CLI
-    - name: Install Azure CLI
-      run: |
-        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-    # Step 3: Log in to Azure using service principal
+    # Step 1: Login to Azure using the service principal
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}  # AZURE_CREDENTIALS contains the JSON credentials for your Azure Service Principal
 
-    # Step 4: Deploy to Azure Container Instances (ACI)
-    - name: Deploy to Azure Container Instances (ACI)
+    # Step 2: Log in to Azure Container Registry (ACR)
+    - name: Log in to Azure Container Registry
       run: |
-        # Deploy api-server container
+        echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_LOGIN_SERVER }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+    # Step 3: Deploy API Server container
+    - name: Deploy api-server container to Azure Container Instances (ACI)
+      run: |
         az container create \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --resource-group anatole-RG \
           --name api-server \
-          --image appnba.azurecr.io/api-server:latest \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/api-server:latest \
           --cpu 1 --memory 2 \
-          --registry-login-server appnba.azurecr.io \
-          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
-          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
           --ports 8080
 
-        # Deploy postgres container (you can choose whether this should be an ACI or part of a more permanent solution)
+    # Step 4: Deploy Postgres container
+    - name: Deploy postgres container to Azure Container Instances (ACI)
+      run: |
         az container create \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --resource-group anatole-RG \
           --name postgres \
-          --image appnba.azurecr.io/postgres:14 \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/postgres:14 \
           --cpu 1 --memory 2 \
-          --registry-login-server appnba.azurecr.io \
-          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
-          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
-          --ports ${DEMO_POSTGRES_PORT}
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --ports 5432
 
-        # Deploy demo-postgres container (optional)
+    # Step 5: Deploy demo-postgres container
+    - name: Deploy demo-postgres container to Azure Container Instances (ACI)
+      run: |
         az container create \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --resource-group anatole-RG \
           --name demo-postgres \
-          --image appnba.azurecr.io/demo-postgres:14 \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/demo-postgres:14 \
           --cpu 1 --memory 2 \
-          --registry-login-server appnba.azurecr.io \
-          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
-          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }} \
-          --ports ${DEMO_POSTGRES_PORT}
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --ports 5432
 
-        # Optional: You can deploy other services like grafana, loki, prometheus as well.
-        # This can be done using similar commands to the ones above.
-        # Example for Grafana:
+    # Step 6: Deploy Loki container
+    - name: Deploy loki container to Azure Container Instances (ACI)
+      run: |
         az container create \
-          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --resource-group anatole-RG \
+          --name loki \
+          --image grafana/loki:2.9.2 \
+          --cpu 1 --memory 2 \
+          --ports 3100 \
+          --command-line "-config.file=/etc/loki/local-config.yaml"
+
+    # Step 7: Deploy Grafana container
+    - name: Deploy grafana container to Azure Container Instances (ACI)
+      run: |
+        az container create \
+          --resource-group anatole-RG \
           --name grafana \
           --image grafana/grafana:latest \
           --cpu 1 --memory 2 \
           --ports 3000 \
-          --registry-login-server appnba.azurecr.io \
-          --registry-username ${{ secrets.AZURE_REGISTRY_USERNAME }} \
-          --registry-password ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+          --environment-variables GF_PATHS_PROVISIONING=/etc/grafana/provisioning GF_AUTH_ANONYMOUS_ENABLED=true GF_AUTH_ANONYMOUS_ORG_ROLE=Admin GF_UNIFIED_ALERTING_ENABLED=true GF_ALERTING_ENABLED=false \
+          --volume-mounts source=./grafana/provisioning,target=/etc/grafana/provisioning
+
+    # Step 8: Deploy Prometheus container
+    - name: Deploy prometheus container to Azure Container Instances (ACI)
+      run: |
+        az container create \
+          --resource-group anatole-RG \
+          --name prometheus \
+          --image prom/prometheus:latest \
+          --cpu 1 --memory 2 \
+          --ports 9090 \
+          --command-line "--config.file=/etc/prometheus/prometheus.yml" \
+          --volume-mounts source=./prometheus,target=/etc/prometheus
+
+    # Step 9: Deploy Alertmanager container
+    - name: Deploy alertmanager container to Azure Container Instances (ACI)
+      run: |
+        az container create \
+          --resource-group anatole-RG \
+          --name alertmanager \
+          --image prom/alertmanager:v0.27.0 \
+          --cpu 1 --memory 2 \
+          --ports 9093 \
+          --command-line "--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager" \
+          --volume-mounts source=./alertmanager,target=/etc/alertmanager
+
+    # Optional: Clean up any previous containers (if you want to delete them before deploying)
+    - name: Clean up previous containers (optional)
+      run: |
+        az container delete --name api-server --resource-group anatole-RG --yes
+        az container delete --name postgres --resource-group anatole-RG --yes
+        az container delete --name demo-postgres --resource-group anatole-RG --yes
+        az container delete --name loki --resource-group anatole-RG --yes
+        az container delete --name grafana --resource-group anatole-RG --yes
+        az container delete --name prometheus --resource-group anatole-RG --yes
+        az container delete --name alertmanager --resource-group anatole-RG --yes
+
+    # Optional: Verify the containers are running in Azure
+    - name: List running Azure Containers
+      run: az container list --resource-group anatole-RG --output table
