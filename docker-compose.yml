@@ -1,16 +1,9 @@
-networks:
-  monitoring-network:
-    name: monitoring-network
-    external: true
-
 services:
   loki:
     image: grafana/loki:2.9.2
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
-    networks:
-      - monitoring-network
 
   grafana:
     image: grafana/grafana:latest
@@ -24,21 +17,20 @@ services:
       - GF_ALERTING_ENABLED=false
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
-    networks:
-      - monitoring-network
     depends_on:
       - loki
       - prometheus
       - alertmanager
 
   api-server:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+    image: appnba.azurecr.io/api-server:latest
     ports:
       - "8080:3000"
-    networks:
-      - monitoring-network
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     logging:
       driver: "json-file"
       options:
@@ -53,8 +45,6 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     ports:
       - "9090:9090"
-    networks:
-      - monitoring-network
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
@@ -64,12 +54,10 @@ services:
       - '--config.file=/etc/alertmanager/config.yml'
       - '--storage.path=/alertmanager'
     ports:
-      - 9093:9093
-    networks:
-      - monitoring-network
+      - "9093:9093"
 
   postgres:
-    image: postgres:14
+    image: appnba.azurecr.io/postgres:14
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -78,11 +66,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT}:5432"
-    networks:
-      - monitoring-network
 
   demo-postgres:
-    image: postgres:14
+    image: appnba.azurecr.io/demo-postgres:14
     environment:
       - POSTGRES_DB=${DEMO_POSTGRES_DB}
       - POSTGRES_USER=${DEMO_POSTGRES_USER}
@@ -91,8 +77,6 @@ services:
       - demo_postgres_data:/var/lib/postgresql/data
     ports:
       - "${DEMO_POSTGRES_PORT}:5432"
-    networks:
-      - monitoring-network
 
 volumes:
   postgres_data:
