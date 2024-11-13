@@ -4,26 +4,26 @@ global:
 scrape_configs:
   - job_name: 'api-server'
     static_configs:
-      - targets: ['${API_SERVER_FQDN}:3000']
+      - targets: ['api-server:3000']
     metrics_path: '/metrics'
 
   - job_name: 'prometheus'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['prometheus:9090']
 
   - job_name: 'loki'
     static_configs:
-      - targets: ['${LOKI_FQDN}:3100']
+      - targets: ['loki:3100']
 
   - job_name: 'grafana'
     static_configs:
-      - targets: ['${GRAFANA_FQDN}:3000']
+      - targets: ['grafana:3000']
 
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - ${ALERTMANAGER_FQDN}:9093
+          - alertmanager:9093
 
 rule_files:
   - 'alert.rules'

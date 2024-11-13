@@ -4,6 +4,7 @@ services:
     ports:
       - "3100:3100"
     command: '--config.file=/etc/loki/local-config.yaml'
+    env_file: ".env"
 
   grafana:
     image: grafana/grafana:latest
@@ -15,6 +16,7 @@ services:
       - loki
       - prometheus
       - alertmanager
+    env_file: ".env"
 
   api-server:
     build:
@@ -28,6 +30,7 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    env_file: ".env"
 
   prometheus:
     image: prom/prometheus:latest
@@ -36,6 +39,7 @@ services:
     command: '--config.file=/etc/prometheus/prometheus.yml'
     ports:
       - "9090:9090"
+    env_file: ".env"
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
@@ -44,6 +48,7 @@ services:
     command: '--config.file=/etc/alertmanager/config.yml --storage.path=/alertmanager'
     ports:
       - "9093:9093"
+    env_file: ".env"
 
   postgres:
     image: postgres:14
@@ -51,13 +56,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    env_file: ".env"
 
   demo-postgres:
     image: postgres:14
     volumes:
       - demo_postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
+    env_file: ".env"
 
 volumes:
   postgres_data:

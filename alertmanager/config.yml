@@ -7,7 +7,7 @@ route:
 receivers:
   - name: 'web.hook'
     webhook_configs:
-      - url: 'http://${API_SERVER_FQDN}:3000/webhook'
+      - url: 'http://api-server:3000/webhook'
 inhibit_rules:
   - source_match:
       severity: 'critical'
